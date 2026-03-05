@@ -91,7 +91,7 @@ Options:
 
 Options:
   --title, -t      Task title (required)
-  --project, -p    Project name or ID
+  --project, -p    Project name or ID (required on local Vikunja)
   --description    Task description
   --due            Due date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
   --assignee, -a   Assignee username
@@ -278,28 +278,12 @@ Status: Open
 
 ## Error Handling
 
-### Authentication Errors
-If your token has expired and automatic refresh fails:
-```
-ERROR: Authentication failed. Your access token has expired.
-Please contact an administrator to refresh your Vikunja access.
-```
+### Authentication and Access Errors
+The skill may return clear auth/access messages (for example invalid/expired token, missing permission, or access denied).  
+When this happens, stop and escalate to the administrator instead of attempting in-session troubleshooting.
 
-**Resolution:** Contact your administrator to refresh your access token.
-
-### Not Found Errors
-```
-ERROR: Not found: Resource not found: /tasks/999
-```
-
-**Resolution:** Verify the task/project ID exists.
-
-### Validation Errors
-```
-ERROR: Invalid input: Project not found: MyProject
-```
-
-**Resolution:** Check the project name or use the project ID.
+### Not Found and Validation Errors
+For missing resources or invalid input, return the error and correct command arguments (ID/name/date format).
 
 ### Exit Codes
 - `0` - Success
@@ -359,7 +343,7 @@ users:
 3. If API returns 401 Unauthorized:
    - If `token_refresh.sh` is configured, it's called automatically
    - If refresh succeeds, the original API call is retried
-   - If refresh fails or isn't configured, an error is returned
+   - If refresh fails or isn't configured, an error is returned and execution stops
 
 ## Security
 
@@ -368,21 +352,12 @@ users:
 - Config file should have 600 permissions
 - No hardcoded credentials
 
-## Troubleshooting
+## Escalation
 
-### "User not found in configuration"
-Contact your administrator to set up your Vikunja credentials.
-
-### "Project not found"
-Use project ID instead of name, or verify the project name:
-```bash
-./scripts/vikunja.sh project list
-```
-
-### Date Format Issues
-Dates must be in ISO 8601 format:
-- `YYYY-MM-DD` (e.g., `2026-03-05`)
-- `YYYY-MM-DDTHH:MM:SS` (e.g., `2026-03-05T14:30:00`)
+Escalate to administrator when:
+- Auth/access errors occur
+- User credentials are missing
+- Endpoint permissions appear insufficient for requested action
 
 ## References
 
