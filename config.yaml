@@ -1,0 +1,16 @@
+vikunja:
+  base_url: http://127.0.0.1:3456/api/v1
+
+paths:
+  # Path to admin skill's users.yaml (contains credentials)
+  credentials: ~/.openclaw/credentials/vikunja
+  
+  # Path to token refresh script (optional)
+  # This will be called when a 401 Unauthorized is received
+  token_refresh: ~/skills-dev/vikunja-admin/scripts/token_refresh.sh
+
+# Note: Update paths when moving to production
+# Production paths typically use ~/.openclaw/skills/vikunja-user/
+
+# Default output format (human, json)
+default_format: human

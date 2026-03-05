@@ -1,0 +1,316 @@
+# Vikunja User Skill
+
+A command-line interface for managing tasks and projects in a Vikunja instance. Designed for OpenClaw agents to interact with Vikunja through a clean, intuitive interface.
+
+## Features
+
+- **Task Management**: Create, update, delete, and list tasks
+- **Project Operations**: View projects and their associated tasks
+- **Smart Filtering**: Filter tasks by project, status, assignee, or text
+- **Comments**: Add and view comments on tasks
+- **Auto-Refresh**: Automatic token refresh when authentication expires
+- **Multiple Output Formats**: Human-readable and JSON output
+
+## Prerequisites
+
+- Python 3.8 or higher
+- Access to a Vikunja instance
+- Credentials configured by the admin skill
+
+## Installation
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd vikunja-user
+   ```
+
+2. **Run setup** (one-time):
+   ```bash
+   ./setup.sh
+   ```
+   This creates a Python virtual environment and installs dependencies.
+
+3. **Configure the skill**:
+   Edit `config.yaml`:
+   ```yaml
+   vikunja:
+     base_url: http://your-vikunja-instance:3456/api/v1
+   
+   paths:
+     credentials: ~/.openclaw/credentials/vikunja
+     token_refresh: ~/skills-dev/vikunja-admin/scripts/token_refresh.sh
+   ```
+
+4. **Ensure credentials are configured**:
+   The admin skill should have created your credentials in `~/.openclaw/credentials/vikunja`
+
+## Quick Start
+
+```bash
+# List your tasks
+./vikunja.sh task list
+
+# Create a new task
+./vikunja.sh task create --title "Buy groceries" --due 2026-03-10
+
+# Show task details
+./vikunja.sh task show 123
+
+# Mark task as done
+./vikunja.sh task update 123 --done
+
+# List projects
+./vikunja.sh project list
+```
+
+## Usage
+
+### Task Commands
+
+#### List Tasks
+```bash
+./vikunja.sh task list [options]
+
+Options:
+  --project, -p    Filter by project name or ID
+  --status, -s     Filter by status (open|done)
+  --filter         Filter by text in title/description
+  --user           Filter by assignee username
+```
+
+**Examples:**
+```bash
+./vikunja.sh task list --status open
+./vikunja.sh task list --project "Work" --status open
+./vikunja.sh task list --filter "urgent"
+```
+
+#### Create Task
+```bash
+./vikunja.sh task create --title "Task title" [options]
+
+Options:
+  --title, -t      Task title (required)
+  --project, -p    Project name or ID
+  --description    Task description
+  --due            Due date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
+  --assignee, -a   Assignee username
+```
+
+**Examples:**
+```bash
+./vikunja.sh task create --title "Review PR" --project "Development"
+./vikunja.sh task create --title "Call client" --due 2026-03-15 --description "Discuss requirements"
+```
+
+#### Update Task
+```bash
+./vikunja.sh task update <task_id> [options]
+
+Options:
+  --title, -t      New title
+  --description    New description
+  --due            New due date
+  --assignee, -a   New assignee username
+  --done           Mark as done
+  --undone         Mark as not done
+```
+
+**Example:**
+```bash
+./vikunja.sh task update 123 --done
+```
+
+#### Delete Task
+```bash
+./vikunja.sh task delete <task_id>
+```
+
+#### Add Comment
+```bash
+./vikunja.sh task comment <task_id> "Comment text"
+```
+
+### Project Commands
+
+```bash
+# List all projects
+./vikunja.sh project list
+
+# Show project details
+./vikunja.sh project show <project_id_or_name>
+
+# List tasks in a project
+./vikunja.sh project tasks <project_id_or_name> [--status open|done]
+```
+
+## Global Options
+
+```bash
+./vikunja.sh [options] <command>
+
+Options:
+  --config, -c     Path to config.yaml
+  --format, -f     Output format: human (default) or json
+  --username, -u   Username for authentication
+```
+
+## Output Formats
+
+### Human-Readable (Default)
+```
+ID: 123
+Title: Buy milk
+Project: Shopping
+Assignee: Agent_01
+Due: 2026-03-05
+Status: Open
+```
+
+### JSON
+```bash
+./vikunja.sh --format json task show 123
+```
+
+Output:
+```json
+{
+  "id": 123,
+  "title": "Buy milk",
+  "project_id": 5,
+  "assignees": [{"id": 1, "username": "Agent_01"}],
+  "due_date": "2026-03-05T00:00:00Z",
+  "done": false
+}
+```
+
+## Configuration
+
+The skill is configured via `config.yaml`:
+
+```yaml
+vikunja:
+  base_url: http://127.0.0.1:3456/api/v1
+
+paths:
+  credentials: ~/.openclaw/credentials/vikunja
+  token_refresh: ~/skills-dev/vikunja-admin/scripts/token_refresh.sh
+
+default_format: human
+```
+
+### Configuration Options
+
+- **base_url**: URL of your Vikunja API instance
+- **credentials**: Path to the users.yaml file containing tokens
+- **token_refresh**: Path to the token refresh script (optional)
+- **default_format**: Default output format (human or json)
+
+## Authentication
+
+Credentials are stored in `~/.openclaw/credentials/vikunja` (managed by the admin skill):
+
+```yaml
+users:
+  agent_01:
+    user: vikunja_username
+    id: 123
+    password: secret
+    token: api_token_here
+    scope: worker
+```
+
+This skill only **reads** credentials. Token management is handled by the admin skill.
+
+### Automatic Token Refresh
+
+When an API call returns 401 Unauthorized:
+1. If `token_refresh.sh` is configured, it's called automatically
+2. If refresh succeeds, the original API call is retried
+3. If refresh fails, an error is returned with instructions to contact an administrator
+
+## Error Handling
+
+Exit codes:
+- `0` - Success
+- `1` - General error (API, auth, not found)
+- `2` - Validation error (invalid input)
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+./.venv/bin/python -m pytest tests/
+
+# Run specific test file
+./.venv/bin/python -m pytest tests/test_tasks.py
+```
+
+### Project Structure
+
+```
+vikunja-user/
+├── vikunja.sh         # Main bash wrapper script
+├── setup.sh           # One-time setup script
+├── config.yaml        # Configuration file
+├── requirements.txt   # Python dependencies
+├── SKILL.md          # Agent-facing documentation
+├── README.md         # This file
+├── src/              # Python source code
+│   ├── __init__.py
+│   ├── vikunja.py    # Main CLI entry point
+│   ├── api_client.py # HTTP client with auth
+│   ├── tasks.py      # Task operations
+│   ├── projects.py   # Project operations
+│   └── config.py     # Configuration management
+├── tests/            # Unit tests
+│   ├── test_api_client.py
+│   ├── test_config.py
+│   ├── test_projects.py
+│   └── test_tasks.py
+└── references/       # Documentation
+    └── AGENTS.md     # Architecture documentation
+```
+
+## Troubleshooting
+
+### "Virtual environment not found"
+Run `./setup.sh` to create the virtual environment.
+
+### "User not found in configuration"
+Contact your administrator to set up your Vikunja credentials.
+
+### "Project not found"
+Use project ID instead of name, or verify the project name:
+```bash
+./vikunja.sh project list
+```
+
+### Date Format Issues
+Dates must be in ISO 8601 format:
+- `YYYY-MM-DD` (e.g., `2026-03-05`)
+- `YYYY-MM-DDTHH:MM:SS` (e.g., `2026-03-05T14:30:00`)
+
+## Security
+
+- Tokens are never logged
+- All API calls use HTTPS when base_url uses https://
+- Config file should have restricted permissions (600)
+- No hardcoded credentials in source code
+
+## Related Projects
+
+- **vikunja-admin**: Admin skill for user and token management
+- **OpenClaw**: The agent framework this skill integrates with
+
+## License
+
+[Your License Here]
+
+## References
+
+- [Vikunja API Documentation](https://try.vikunja.io/api/v1/docs)
+- [Vikunja Project](https://vikunja.io/)
