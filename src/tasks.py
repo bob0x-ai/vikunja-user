@@ -108,7 +108,8 @@ class TaskManager:
         description: Optional[str] = None,
         due_date: Optional[str] = None,
         done: Optional[bool] = None,
-        assignee_id: Optional[int] = None
+        assignee_id: Optional[int] = None,
+        percent_done: Optional[int] = None
     ) -> Dict[str, Any]:
         """Update an existing task.
         
@@ -119,6 +120,7 @@ class TaskManager:
             due_date: New due date in ISO 8601 format
             done: Mark as done (True) or undone (False)
             assignee_id: New assignee user ID (or None to remove assignee)
+            percent_done: Task completion percentage (0-100)
             
         Returns:
             Updated task dictionary
@@ -158,6 +160,9 @@ class TaskManager:
             current_assignees = task.get('assignees', [])
             if current_assignees:
                 data['assignees'] = [{'id': a['id']} for a in current_assignees]
+        
+        if percent_done is not None:
+            data['percent_done'] = max(0, min(100, percent_done))
         
         return self.client.put(f'/tasks/{task_id}', data=data)
     
@@ -228,3 +233,34 @@ class TaskManager:
             Updated task dictionary
         """
         return self.update_task(task_id, done=False)
+    
+    def start_task(self, task_id: int, user_id: int) -> Dict[str, Any]:
+        """Start working on a task.
+        
+        Sets progress to 10% and assigns task to the specified user.
+        This signals that work has begun and prevents other agents from picking up the task.
+        
+        Args:
+            task_id: The task ID
+            user_id: User ID to assign the task to
+            
+        Returns:
+            Updated task dictionary
+        """
+        return self.update_task(
+            task_id=task_id,
+            assignee_id=user_id,
+            percent_done=10
+        )
+    
+    def set_progress(self, task_id: int, percent_done: int) -> Dict[str, Any]:
+        """Update task progress percentage.
+        
+        Args:
+            task_id: The task ID
+            percent_done: Completion percentage (0-100)
+            
+        Returns:
+            Updated task dictionary
+        """
+        return self.update_task(task_id, percent_done=percent_done)

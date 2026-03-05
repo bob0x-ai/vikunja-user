@@ -298,10 +298,24 @@ def handle_task_command(args: argparse.Namespace, formatter: OutputFormatter) ->
                 description=args.description,
                 due_date=due_date,
                 done=done,
-                assignee_id=assignee_id
+                assignee_id=assignee_id,
+                percent_done=args.progress
             )
             
             formatter.print_success(f"Task {args.task_id} updated")
+            formatter.print_data(task)
+        
+        elif args.task_command == 'start':
+            # Start working on task: set progress to 10% and assign to user
+            assignee_id = client.user_id  # Default to current user
+            
+            if args.assignee:
+                # Allow explicit override
+                assignee_id = resolve_user_id(client, args.assignee, project_manager)
+            
+            task = task_manager.start_task(args.task_id, assignee_id)
+            
+            formatter.print_success(f"Task {args.task_id} started - assigned and set to 10% progress")
             formatter.print_data(task)
         
         elif args.task_command == 'delete':
@@ -475,6 +489,14 @@ def main() -> int:
     task_update.add_argument('--assignee', '-a', help='New assignee username')
     task_update.add_argument('--done', action='store_true', help='Mark as done')
     task_update.add_argument('--undone', action='store_true', help='Mark as not done')
+    task_update.add_argument('--progress', type=int, metavar='PERCENT', 
+                             help='Set progress percentage (0-100)')
+    
+    # task start
+    task_start = task_subparsers.add_parser('start', help='Start working on a task')
+    task_start.add_argument('task_id', type=int, help='Task ID')
+    task_start.add_argument('--assignee', '-a', 
+                            help='Assignee username (default: current user)')
     
     # task delete
     task_delete = task_subparsers.add_parser('delete', help='Delete a task')

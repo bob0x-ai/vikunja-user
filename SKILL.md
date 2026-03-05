@@ -114,6 +114,7 @@ Options:
   --assignee, -a   New assignee username
   --done           Mark as done
   --undone         Mark as not done
+  --progress       Set progress percentage (0-100)
 ```
 
 **Examples:**
@@ -121,6 +122,23 @@ Options:
 ./scripts/vikunja.sh task update 123 --title "Updated title"
 ./scripts/vikunja.sh task update 123 --done
 ./scripts/vikunja.sh task update 123 --due 2026-04-01 --assignee "john"
+./scripts/vikunja.sh task update 123 --progress 50
+```
+
+#### Start Task
+Start working on a task. Automatically assigns it to you and sets progress to 10%.
+
+```bash
+./scripts/vikunja.sh task start <task_id> [--assignee <username>]
+```
+
+**Examples:**
+```bash
+# Start task and assign to yourself
+./scripts/vikunja.sh task start 123
+
+# Start task and assign to another user
+./scripts/vikunja.sh task start 123 --assignee "john"
 ```
 
 #### Delete Task
