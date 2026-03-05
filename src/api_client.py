@@ -10,7 +10,7 @@ from pathlib import Path
 import requests
 import yaml
 
-from .config import get_config
+from config import get_config
 
 
 class AuthError(Exception):

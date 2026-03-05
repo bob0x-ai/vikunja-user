@@ -2,7 +2,7 @@
 """Project operations for Vikunja API."""
 
 from typing import Any, Dict, List, Optional
-from .api_client import VikunjaClient, NotFoundError
+from api_client import VikunjaClient, NotFoundError
 
 
 class ProjectManager:
