@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import sys
 from typing import Any, Dict, List, Optional
 from pathlib import Path
@@ -494,9 +495,15 @@ def main() -> int:
     args = parser.parse_args()
     
     # Determine username
+    # Priority: 1) --username flag, 2) OPENCLAW_AGENT_ID env var, 3) system username
     if args.username is None:
-        import getpass
-        args.username = getpass.getuser()
+        # Check for OpenClaw agent ID in environment
+        args.username = os.environ.get('OPENCLAW_AGENT_ID')
+        
+        if args.username is None:
+            # Fall back to system username
+            import getpass
+            args.username = getpass.getuser()
     
     # Determine format
     format_type = args.format

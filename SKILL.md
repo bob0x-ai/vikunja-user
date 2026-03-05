@@ -167,6 +167,30 @@ Options:
 ./scripts/vikunja.sh project tasks 5 --status open
 ```
 
+## Authentication
+
+The skill automatically determines the username to use for authentication with the following priority:
+
+1. **`--username` flag** (highest priority) - Explicitly specify the username
+2. **`OPENCLAW_AGENT_ID` environment variable** - Automatically set by OpenClaw framework
+3. **System username** (fallback) - Current OS user from `getpass.getuser()`
+
+### Examples
+
+```bash
+# Let the skill auto-detect (uses OPENCLAW_AGENT_ID or system user)
+./scripts/vikunja.sh task list
+
+# Explicitly specify username
+./scripts/vikunja.sh --username agent_01 task list
+
+# Set environment variable manually (for testing)
+export OPENCLAW_AGENT_ID=agent_01
+./scripts/vikunja.sh task list
+```
+
+The skill uses this username to look up credentials in `users.yaml` and authenticate with the Vikunja API.
+
 ## Global Options
 
 ```bash
@@ -175,7 +199,7 @@ Options:
 Options:
   --config, -c     Path to config.yaml
   --format, -f     Output format: human (default) or json
-  --username, -u   Username for authentication
+  --username, -u   Username for authentication (overrides auto-detection)
 ```
 
 **Examples:**

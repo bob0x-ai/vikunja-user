@@ -209,6 +209,28 @@ default_format: human
 
 ## Authentication
 
+The skill automatically determines which user credentials to use through the following priority:
+
+1. **`--username` flag** - Explicitly specify the username
+2. **`OPENCLAW_AGENT_ID` environment variable** - Set by the OpenClaw framework
+3. **System username** - Falls back to current OS user
+
+### Username Resolution
+
+```bash
+# Auto-detect (recommended for OpenClaw agents)
+./scripts/vikunja.sh task list
+
+# Explicit username
+./scripts/vikunja.sh --username agent_01 task list
+
+# Manual testing with environment variable
+export OPENCLAW_AGENT_ID=agent_01
+./scripts/vikunja.sh task list
+```
+
+### Credentials Storage
+
 Credentials are stored in `~/.openclaw/credentials/vikunja` (managed by the admin skill):
 
 ```yaml
