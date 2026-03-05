@@ -66,7 +66,7 @@ class Config:
     @property
     def default_format(self) -> str:
         """Get default output format."""
-        return self._config.get('default_format', 'human')
+        return self._config.get('default_format', 'json')
     
     def get(self, key: str, default: Any = None) -> Any:
         """Get arbitrary config value by key path (e.g., 'vikunja.base_url')."""

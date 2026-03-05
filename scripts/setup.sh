@@ -5,7 +5,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/.venv"
+VENV_DIR="$SCRIPT_DIR/../.venv"
 
 echo "Setting up Vikunja skill..."
 
@@ -36,6 +36,6 @@ pip install --quiet -r "$SCRIPT_DIR/requirements.txt"
 echo "Setup complete!"
 echo ""
 echo "Next steps:"
-echo "1. Edit config.yaml to set your Vikunja base URL"
+echo "1. Edit ../config.yaml to set your Vikunja base URL"
 echo "2. Ensure your credentials are configured in the admin skill"
-echo "3. Run './vikunja.sh --help' to get started"
+echo "3. Run './scripts/vikunja.sh --help' to get started"

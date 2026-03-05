@@ -444,7 +444,7 @@ def main() -> int:
     parser.add_argument(
         '--format', '-f',
         choices=['human', 'json'],
-        help='Output format (default: from config or human)',
+        help='Output format (default: from config or json)',
         default=None
     )
     
@@ -530,10 +530,18 @@ def main() -> int:
     args = parser.parse_args()
     
     # Determine username
-    # Priority: 1) --username flag, 2) OPENCLAW_AGENT_ID env var, 3) system username
+    # Priority:
+    # 1) --username flag
+    # 2) AGENT_ID env var
+    # 3) agent_id env var
+    # 4) OPENCLAW_AGENT_ID env var (legacy fallback)
+    # 5) system username
     if args.username is None:
-        # Check for OpenClaw agent ID in environment
-        args.username = os.environ.get('OPENCLAW_AGENT_ID')
+        args.username = (
+            os.environ.get('AGENT_ID') or
+            os.environ.get('agent_id') or
+            os.environ.get('OPENCLAW_AGENT_ID')
+        )
         
         if args.username is None:
             # Fall back to system username
@@ -547,7 +555,7 @@ def main() -> int:
             config = get_config(args.config)
             format_type = config.default_format
         except:
-            format_type = 'human'
+            format_type = 'json'
     
     formatter = OutputFormatter(format_type)
     

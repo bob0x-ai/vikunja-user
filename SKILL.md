@@ -208,20 +208,22 @@ Options:
 The skill automatically determines the username to use for authentication with the following priority:
 
 1. **`--username` flag** (highest priority) - Explicitly specify the username
-2. **`OPENCLAW_AGENT_ID` environment variable** - Automatically set by OpenClaw framework
-3. **System username** (fallback) - Current OS user from `getpass.getuser()`
+2. **`AGENT_ID` environment variable**
+3. **`agent_id` environment variable**
+4. **`OPENCLAW_AGENT_ID` environment variable** (legacy fallback)
+5. **System username** (fallback) - Current OS user from `getpass.getuser()`
 
 ### Examples
 
 ```bash
-# Let the skill auto-detect (uses OPENCLAW_AGENT_ID or system user)
+# Let the skill auto-detect (uses AGENT_ID / agent_id / OPENCLAW_AGENT_ID or system user)
 ./scripts/vikunja.sh task list
 
 # Explicitly specify username
 ./scripts/vikunja.sh --username agent_01 task list
 
 # Set environment variable manually (for testing)
-export OPENCLAW_AGENT_ID=agent_01
+export AGENT_ID=agent_01
 ./scripts/vikunja.sh task list
 ```
 
@@ -234,7 +236,7 @@ The skill uses this username to look up credentials in `users.yaml` and authenti
 
 Options:
   --config, -c     Path to config.yaml
-  --format, -f     Output format: human (default) or json
+  --format, -f     Output format: json (default) or human
   --username, -u   Username for authentication (overrides auto-detection)
 ```
 
@@ -247,17 +249,7 @@ Options:
 
 ## Output Formats
 
-### Human-Readable (Default)
-```
-ID: 123
-Title: Buy milk
-Project: Shopping
-Assignee: Agent_01
-Due: 2026-03-05
-Status: Open
-```
-
-### JSON
+### JSON (Default)
 ```bash
 ./scripts/vikunja.sh --format json task show 123
 ```
@@ -272,6 +264,16 @@ Output:
   "due_date": "2026-03-05T00:00:00Z",
   "done": false
 }
+```
+
+### Human-Readable
+```
+ID: 123
+Title: Buy milk
+Project: Shopping
+Assignee: Agent_01
+Due: 2026-03-05
+Status: Open
 ```
 
 ## Error Handling
@@ -323,7 +325,7 @@ paths:
   token_refresh: ../vikunja-admin/scripts/token_refresh.sh
 
 # Default output format
-default_format: human
+default_format: json
 ```
 
 ### Credentials

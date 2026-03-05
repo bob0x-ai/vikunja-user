@@ -59,7 +59,7 @@ vikunja:
         config = Config(str(self.config_path))
         
         self.assertEqual(config.base_url, 'http://example.com/api')
-        self.assertEqual(config.default_format, 'human')
+        self.assertEqual(config.default_format, 'json')
         self.assertEqual(config.credentials_path, Path.home() / '.openclaw/credentials/vikunja/users.yaml')
         self.assertIsNone(config.token_refresh_path)
     
