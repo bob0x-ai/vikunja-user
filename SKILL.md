@@ -20,19 +20,19 @@ This skill provides OpenClaw agents with the ability to:
 
 ```bash
 # List your tasks
-./vikunja.sh task list
+./scripts/vikunja.sh task list
 
 # Create a new task
-./vikunja.sh task create --title "Buy groceries" --due 2026-03-10
+./scripts/vikunja.sh task create --title "Buy groceries" --due 2026-03-10
 
 # Show task details
-./vikunja.sh task show 123
+./scripts/vikunja.sh task show 123
 
 # Mark task as done
-./vikunja.sh task update 123 --done
+./scripts/vikunja.sh task update 123 --done
 
 # List projects
-./vikunja.sh project list
+./scripts/vikunja.sh project list
 ```
 
 ## Commands
@@ -41,7 +41,7 @@ This skill provides OpenClaw agents with the ability to:
 
 #### List Tasks
 ```bash
-./vikunja.sh task list [options]
+./scripts/vikunja.sh task list [options]
 
 Options:
   --project, -p    Filter by project name or ID
@@ -52,24 +52,24 @@ Options:
 
 **Examples:**
 ```bash
-./vikunja.sh task list --status open
-./vikunja.sh task list --project "Work" --status open
-./vikunja.sh task list --filter "urgent"
+./scripts/vikunja.sh task list --status open
+./scripts/vikunja.sh task list --project "Work" --status open
+./scripts/vikunja.sh task list --filter "urgent"
 ```
 
 #### Show Task Details
 ```bash
-./vikunja.sh task show <task_id>
+./scripts/vikunja.sh task show <task_id>
 ```
 
 **Example:**
 ```bash
-./vikunja.sh task show 123
+./scripts/vikunja.sh task show 123
 ```
 
 #### Create Task
 ```bash
-./vikunja.sh task create --title "Task title" [options]
+./scripts/vikunja.sh task create --title "Task title" [options]
 
 Options:
   --title, -t      Task title (required)
@@ -81,13 +81,13 @@ Options:
 
 **Examples:**
 ```bash
-./vikunja.sh task create --title "Review PR" --project "Development"
-./vikunja.sh task create --title "Call client" --due 2026-03-15 --description "Discuss requirements"
+./scripts/vikunja.sh task create --title "Review PR" --project "Development"
+./scripts/vikunja.sh task create --title "Call client" --due 2026-03-15 --description "Discuss requirements"
 ```
 
 #### Update Task
 ```bash
-./vikunja.sh task update <task_id> [options]
+./scripts/vikunja.sh task update <task_id> [options]
 
 Options:
   --title, -t      New title
@@ -100,62 +100,62 @@ Options:
 
 **Examples:**
 ```bash
-./vikunja.sh task update 123 --title "Updated title"
-./vikunja.sh task update 123 --done
-./vikunja.sh task update 123 --due 2026-04-01 --assignee "john"
+./scripts/vikunja.sh task update 123 --title "Updated title"
+./scripts/vikunja.sh task update 123 --done
+./scripts/vikunja.sh task update 123 --due 2026-04-01 --assignee "john"
 ```
 
 #### Delete Task
 ```bash
-./vikunja.sh task delete <task_id>
+./scripts/vikunja.sh task delete <task_id>
 ```
 
 **Example:**
 ```bash
-./vikunja.sh task delete 123
+./scripts/vikunja.sh task delete 123
 ```
 
 #### Add Comment
 ```bash
-./vikunja.sh task comment <task_id> "Comment text"
+./scripts/vikunja.sh task comment <task_id> "Comment text"
 ```
 
 **Example:**
 ```bash
-./vikunja.sh task comment 123 "Waiting for feedback from team"
+./scripts/vikunja.sh task comment 123 "Waiting for feedback from team"
 ```
 
 #### List Comments
 ```bash
-./vikunja.sh task comments <task_id>
+./scripts/vikunja.sh task comments <task_id>
 ```
 
 **Example:**
 ```bash
-./vikunja.sh task comments 123
+./scripts/vikunja.sh task comments 123
 ```
 
 ### Project Commands
 
 #### List Projects
 ```bash
-./vikunja.sh project list
+./scripts/vikunja.sh project list
 ```
 
 #### Show Project Details
 ```bash
-./vikunja.sh project show <project_id_or_name>
+./scripts/vikunja.sh project show <project_id_or_name>
 ```
 
 **Examples:**
 ```bash
-./vikunja.sh project show 5
-./vikunja.sh project show "Work Projects"
+./scripts/vikunja.sh project show 5
+./scripts/vikunja.sh project show "Work Projects"
 ```
 
 #### List Project Tasks
 ```bash
-./vikunja.sh project tasks <project_id_or_name> [options]
+./scripts/vikunja.sh project tasks <project_id_or_name> [options]
 
 Options:
   --status, -s  Filter by status (open|done)
@@ -163,14 +163,14 @@ Options:
 
 **Examples:**
 ```bash
-./vikunja.sh project tasks "Work Projects"
-./vikunja.sh project tasks 5 --status open
+./scripts/vikunja.sh project tasks "Work Projects"
+./scripts/vikunja.sh project tasks 5 --status open
 ```
 
 ## Global Options
 
 ```bash
-./vikunja.sh [global-options] <command>
+./scripts/vikunja.sh [global-options] <command>
 
 Options:
   --config, -c     Path to config.yaml
@@ -180,9 +180,9 @@ Options:
 
 **Examples:**
 ```bash
-./vikunja.sh --format json task list
-./vikunja.sh --username agent_01 project list
-./vikunja.sh --config /path/to/config.yaml task show 123
+./scripts/vikunja.sh --format json task list
+./scripts/vikunja.sh --username agent_01 project list
+./scripts/vikunja.sh --config /path/to/config.yaml task show 123
 ```
 
 ## Output Formats
@@ -199,7 +199,7 @@ Status: Open
 
 ### JSON
 ```bash
-./vikunja.sh --format json task show 123
+./scripts/vikunja.sh --format json task show 123
 ```
 
 Output:
@@ -257,7 +257,10 @@ paths:
   credentials: ~/.openclaw/credentials/vikunja
   
   # Path to token refresh script (optional)
-  token_refresh: ~/skills-dev/vikunja-admin/scripts/token_refresh.sh
+  # Relative path works in both dev and production:
+  # - dev: ~/skills-dev/vikunja-user/../vikunja-admin/scripts/
+  # - prod: ~/.openclaw/skills/vikunja-user/../vikunja-admin/scripts/
+  token_refresh: ../vikunja-admin/scripts/token_refresh.sh
 
 # Default output format
 default_format: human
@@ -303,7 +306,7 @@ Contact your administrator to set up your Vikunja credentials.
 ### "Project not found"
 Use project ID instead of name, or verify the project name:
 ```bash
-./vikunja.sh project list
+./scripts/vikunja.sh project list
 ```
 
 ### Date Format Issues

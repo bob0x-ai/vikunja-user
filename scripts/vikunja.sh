@@ -5,7 +5,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/.venv"
+VENV_DIR="$SCRIPT_DIR/../.venv"
 PYTHON_CMD="$VENV_DIR/bin/python"
 
 # Check if venv exists
@@ -21,4 +21,4 @@ if [ ! -f "$PYTHON_CMD" ]; then
 fi
 
 # Run the Python CLI with all arguments
-exec "$PYTHON_CMD" "$SCRIPT_DIR/src/vikunja.py" "$@"
+exec "$PYTHON_CMD" "$SCRIPT_DIR/../src/vikunja.py" "$@"

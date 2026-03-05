@@ -14,9 +14,10 @@ A user-facing skill for OpenClaw agents to interact with Vikunja tasks and proje
 
 ### Structure
 ```
-vikunja/
-├── vikunja.sh              # Main controller script (bash)
-├── setup.sh                # One-time setup (creates venv, installs deps)
+vikunja-user/
+├── scripts/
+│   ├── vikunja.sh         # Main controller script (bash)
+│   └── setup.sh           # One-time setup (creates venv, installs deps)
 ├── src/
 │   ├── __init__.py
 │   ├── vikunja.py         # Main CLI entry point (Python)
@@ -26,6 +27,9 @@ vikunja/
 │   └── config.py          # Configuration management
 ├── references/
 │   └── AGENTS.md          # This file
+├── github/
+│   └── README.md          # Human-facing documentation
+├── SKILL.md               # Agent-facing documentation
 ├── config.yaml            # Skill configuration
 └── .venv/                 # Python virtual environment (created by setup)
 ```
@@ -114,7 +118,7 @@ paths:
   credentials: ~/.openclaw/credentials/vikunja
   
   # Path to token refresh script (optional)
-  token_refresh: ./vikunja-admin/scripts/token_refresh.sh
+  token_refresh: ../vikunja-admin/scripts/token_refresh.sh
 ```
 
 **users.yaml** (managed by admin skill):

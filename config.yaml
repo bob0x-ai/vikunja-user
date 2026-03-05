@@ -7,10 +7,10 @@ paths:
   
   # Path to token refresh script (optional)
   # This will be called when a 401 Unauthorized is received
-  token_refresh: ~/skills-dev/vikunja-admin/scripts/token_refresh.sh
-
-# Note: Update paths when moving to production
-# Production paths typically use ~/.openclaw/skills/vikunja-user/
+  # Relative path works in both dev and production:
+  # - dev: ~/skills-dev/vikunja-user/../vikunja-admin/scripts/
+  # - prod: ~/.openclaw/skills/vikunja-user/../vikunja-admin/scripts/
+  token_refresh: ../vikunja-admin/scripts/token_refresh.sh
 
 # Default output format (human, json)
 default_format: human

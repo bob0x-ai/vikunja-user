@@ -27,7 +27,7 @@ A command-line interface for managing tasks and projects in a Vikunja instance. 
 
 2. **Run setup** (one-time):
    ```bash
-   ./setup.sh
+./scripts/setup.sh
    ```
    This creates a Python virtual environment and installs dependencies.
 
@@ -39,7 +39,7 @@ A command-line interface for managing tasks and projects in a Vikunja instance. 
    
    paths:
      credentials: ~/.openclaw/credentials/vikunja
-     token_refresh: ~/skills-dev/vikunja-admin/scripts/token_refresh.sh
+  token_refresh: ../vikunja-admin/scripts/token_refresh.sh
    ```
 
 4. **Ensure credentials are configured**:
@@ -49,19 +49,19 @@ A command-line interface for managing tasks and projects in a Vikunja instance. 
 
 ```bash
 # List your tasks
-./vikunja.sh task list
+./scripts/vikunja.sh task list
 
 # Create a new task
-./vikunja.sh task create --title "Buy groceries" --due 2026-03-10
+./scripts/vikunja.sh task create --title "Buy groceries" --due 2026-03-10
 
 # Show task details
-./vikunja.sh task show 123
+./scripts/vikunja.sh task show 123
 
 # Mark task as done
-./vikunja.sh task update 123 --done
+./scripts/vikunja.sh task update 123 --done
 
 # List projects
-./vikunja.sh project list
+./scripts/vikunja.sh project list
 ```
 
 ## Usage
@@ -70,7 +70,7 @@ A command-line interface for managing tasks and projects in a Vikunja instance. 
 
 #### List Tasks
 ```bash
-./vikunja.sh task list [options]
+./scripts/vikunja.sh task list [options]
 
 Options:
   --project, -p    Filter by project name or ID
@@ -81,14 +81,14 @@ Options:
 
 **Examples:**
 ```bash
-./vikunja.sh task list --status open
-./vikunja.sh task list --project "Work" --status open
-./vikunja.sh task list --filter "urgent"
+./scripts/vikunja.sh task list --status open
+./scripts/vikunja.sh task list --project "Work" --status open
+./scripts/vikunja.sh task list --filter "urgent"
 ```
 
 #### Create Task
 ```bash
-./vikunja.sh task create --title "Task title" [options]
+./scripts/vikunja.sh task create --title "Task title" [options]
 
 Options:
   --title, -t      Task title (required)
@@ -100,13 +100,13 @@ Options:
 
 **Examples:**
 ```bash
-./vikunja.sh task create --title "Review PR" --project "Development"
-./vikunja.sh task create --title "Call client" --due 2026-03-15 --description "Discuss requirements"
+./scripts/vikunja.sh task create --title "Review PR" --project "Development"
+./scripts/vikunja.sh task create --title "Call client" --due 2026-03-15 --description "Discuss requirements"
 ```
 
 #### Update Task
 ```bash
-./vikunja.sh task update <task_id> [options]
+./scripts/vikunja.sh task update <task_id> [options]
 
 Options:
   --title, -t      New title
@@ -119,36 +119,36 @@ Options:
 
 **Example:**
 ```bash
-./vikunja.sh task update 123 --done
+./scripts/vikunja.sh task update 123 --done
 ```
 
 #### Delete Task
 ```bash
-./vikunja.sh task delete <task_id>
+./scripts/vikunja.sh task delete <task_id>
 ```
 
 #### Add Comment
 ```bash
-./vikunja.sh task comment <task_id> "Comment text"
+./scripts/vikunja.sh task comment <task_id> "Comment text"
 ```
 
 ### Project Commands
 
 ```bash
 # List all projects
-./vikunja.sh project list
+./scripts/vikunja.sh project list
 
 # Show project details
-./vikunja.sh project show <project_id_or_name>
+./scripts/vikunja.sh project show <project_id_or_name>
 
 # List tasks in a project
-./vikunja.sh project tasks <project_id_or_name> [--status open|done]
+./scripts/vikunja.sh project tasks <project_id_or_name> [--status open|done]
 ```
 
 ## Global Options
 
 ```bash
-./vikunja.sh [options] <command>
+./scripts/vikunja.sh [options] <command>
 
 Options:
   --config, -c     Path to config.yaml
@@ -170,7 +170,7 @@ Status: Open
 
 ### JSON
 ```bash
-./vikunja.sh --format json task show 123
+./scripts/vikunja.sh --format json task show 123
 ```
 
 Output:
@@ -253,12 +253,9 @@ Exit codes:
 
 ```
 vikunja-user/
-├── vikunja.sh         # Main bash wrapper script
-├── setup.sh           # One-time setup script
-├── config.yaml        # Configuration file
-├── requirements.txt   # Python dependencies
-├── SKILL.md          # Agent-facing documentation
-├── README.md         # This file
+├── scripts/           # Executable scripts
+│   ├── vikunja.sh    # Main bash wrapper script
+│   └── setup.sh      # One-time setup script
 ├── src/              # Python source code
 │   ├── __init__.py
 │   ├── vikunja.py    # Main CLI entry point
@@ -271,8 +268,13 @@ vikunja-user/
 │   ├── test_config.py
 │   ├── test_projects.py
 │   └── test_tasks.py
-└── references/       # Documentation
-    └── AGENTS.md     # Architecture documentation
+├── github/           # GitHub documentation
+│   └── README.md     # Human-facing documentation
+├── references/       # Architecture documentation
+│   └── AGENTS.md     # Implementation specification
+├── config.yaml       # Configuration file
+├── requirements.txt  # Python dependencies
+└── SKILL.md          # Agent-facing documentation
 ```
 
 ## Troubleshooting
@@ -286,7 +288,7 @@ Contact your administrator to set up your Vikunja credentials.
 ### "Project not found"
 Use project ID instead of name, or verify the project name:
 ```bash
-./vikunja.sh project list
+./scripts/vikunja.sh project list
 ```
 
 ### Date Format Issues
