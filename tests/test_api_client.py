@@ -33,6 +33,11 @@ paths:
 """
         with open(self.config_path, 'w') as f:
             f.write(config_content)
+
+        # Create refresh script path so _refresh_token existence check passes
+        refresh_script = Path(self.temp_dir) / 'refresh.sh'
+        refresh_script.write_text("#!/bin/sh\nexit 0\n")
+        refresh_script.chmod(0o755)
         
         # Create test credentials
         creds_content = """

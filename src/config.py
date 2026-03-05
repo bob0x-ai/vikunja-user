@@ -40,16 +40,27 @@ class Config:
     
     @property
     def credentials_path(self) -> Path:
-        """Get path to credentials file (users.yaml)."""
+        """Get path to credentials file (users.yaml).
+
+        Supports both:
+        - A direct file path to users.yaml
+        - A directory containing users.yaml
+        """
         path = self._config.get('paths', {}).get('credentials', '~/.openclaw/credentials/vikunja')
-        return Path(path).expanduser()
+        candidate = Path(path).expanduser()
+        if candidate.is_dir() or candidate.suffix == '':
+            return candidate / 'users.yaml'
+        return candidate
     
     @property
     def token_refresh_path(self) -> Optional[Path]:
         """Get path to token refresh script, if configured."""
         path = self._config.get('paths', {}).get('token_refresh')
         if path:
-            return Path(path).expanduser()
+            p = Path(path).expanduser()
+            if not p.is_absolute():
+                p = (self.config_path.parent / p).resolve()
+            return p
         return None
     
     @property

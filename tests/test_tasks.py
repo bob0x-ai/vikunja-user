@@ -24,12 +24,10 @@ class TestTaskManager(unittest.TestCase):
     
     def test_list_tasks_no_filters(self):
         """Test listing tasks without filters."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'title': 'Task 1'},
-                {'id': 2, 'title': 'Task 2'}
-            ]
-        }
+        self.mock_client.get.return_value = [
+            {'id': 1, 'title': 'Task 1'},
+            {'id': 2, 'title': 'Task 2'}
+        ]
         
         tasks = self.task_manager.list_tasks()
         
@@ -39,9 +37,7 @@ class TestTaskManager(unittest.TestCase):
     
     def test_list_tasks_with_filters(self):
         """Test listing tasks with filters."""
-        self.mock_client.get.return_value = {
-            'data': [{'id': 1, 'title': 'Task 1'}]
-        }
+        self.mock_client.get.return_value = [{'id': 1, 'title': 'Task 1'}]
         
         tasks = self.task_manager.list_tasks(
             project_id=5,
@@ -73,25 +69,16 @@ class TestTaskManager(unittest.TestCase):
         self.assertEqual(task['title'], 'Test Task')
         self.mock_client.get.assert_called_once_with('/tasks/1')
     
-    def test_create_task_minimal(self):
-        """Test creating a task with minimal data."""
-        self.mock_client.post.return_value = {
-            'id': 1,
-            'title': 'New Task',
-            'project_id': None
-        }
-        
-        task = self.task_manager.create_task('New Task')
-        
-        self.assertEqual(task['id'], 1)
-        self.mock_client.post.assert_called_once_with('/tasks', data={'title': 'New Task'})
+    def test_create_task_requires_project(self):
+        """Test creating a task requires project_id on this API version."""
+        with self.assertRaises(ValueError):
+            self.task_manager.create_task('New Task')
     
     def test_create_task_full(self):
         """Test creating a task with all fields."""
-        self.mock_client.post.return_value = {
+        self.mock_client.put.return_value = {
             'id': 1,
-            'title': 'New Task',
-            'project_id': 5
+            'title': 'New Task'
         }
         
         task = self.task_manager.create_task(
@@ -104,12 +91,11 @@ class TestTaskManager(unittest.TestCase):
         
         expected_data = {
             'title': 'New Task',
-            'project_id': 5,
             'description': 'Task description',
             'due_date': '2026-03-10',
             'assignees': [{'id': 10}]
         }
-        self.mock_client.post.assert_called_once_with('/tasks', data=expected_data)
+        self.mock_client.put.assert_called_once_with('/projects/5/tasks', data=expected_data)
     
     def test_update_task(self):
         """Test updating a task."""
@@ -123,7 +109,7 @@ class TestTaskManager(unittest.TestCase):
             'assignees': [{'id': 5}]
         }
         
-        self.mock_client.put.return_value = {
+        self.mock_client.post.return_value = {
             'id': 1,
             'title': 'New Title',
             'done': True
@@ -134,7 +120,7 @@ class TestTaskManager(unittest.TestCase):
         self.assertEqual(task['title'], 'New Title')
         
         # Verify the put call includes all fields
-        call_args = self.mock_client.put.call_args
+        call_args = self.mock_client.post.call_args
         self.assertEqual(call_args[0][0], '/tasks/1')
         self.assertEqual(call_args[1]['data']['title'], 'New Title')
         self.assertEqual(call_args[1]['data']['done'], True)
@@ -150,7 +136,7 @@ class TestTaskManager(unittest.TestCase):
     
     def test_add_comment(self):
         """Test adding a comment to a task."""
-        self.mock_client.post.return_value = {
+        self.mock_client.put.return_value = {
             'id': 1,
             'comment': 'Test comment',
             'task_id': 5
@@ -159,19 +145,17 @@ class TestTaskManager(unittest.TestCase):
         comment = self.task_manager.add_comment(5, 'Test comment')
         
         self.assertEqual(comment['comment'], 'Test comment')
-        self.mock_client.post.assert_called_once_with(
+        self.mock_client.put.assert_called_once_with(
             '/tasks/5/comments',
             data={'comment': 'Test comment'}
         )
     
     def test_get_comments(self):
         """Test getting comments for a task."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'comment': 'First comment'},
-                {'id': 2, 'comment': 'Second comment'}
-            ]
-        }
+        self.mock_client.get.return_value = [
+            {'id': 1, 'comment': 'First comment'},
+            {'id': 2, 'comment': 'Second comment'}
+        ]
         
         comments = self.task_manager.get_comments(5)
         
@@ -186,7 +170,7 @@ class TestTaskManager(unittest.TestCase):
             'done': False
         }
         
-        self.mock_client.put.return_value = {
+        self.mock_client.post.return_value = {
             'id': 1,
             'title': 'Task',
             'done': True
@@ -204,7 +188,7 @@ class TestTaskManager(unittest.TestCase):
             'done': True
         }
         
-        self.mock_client.put.return_value = {
+        self.mock_client.post.return_value = {
             'id': 1,
             'title': 'Task',
             'done': False

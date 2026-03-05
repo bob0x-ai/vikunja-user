@@ -44,7 +44,7 @@ default_format: json
         
         self.assertEqual(config.base_url, 'http://localhost:3456/api/v1')
         self.assertEqual(config.default_format, 'json')
-        self.assertEqual(config.credentials_path, Path.home() / '.test/credentials')
+        self.assertEqual(config.credentials_path, Path.home() / '.test/credentials/users.yaml')
         self.assertEqual(config.token_refresh_path, Path.home() / 'scripts/refresh.sh')
     
     def test_load_default_values(self):
@@ -60,7 +60,7 @@ vikunja:
         
         self.assertEqual(config.base_url, 'http://example.com/api')
         self.assertEqual(config.default_format, 'human')
-        self.assertEqual(config.credentials_path, Path.home() / '.openclaw/credentials/vikunja')
+        self.assertEqual(config.credentials_path, Path.home() / '.openclaw/credentials/vikunja/users.yaml')
         self.assertIsNone(config.token_refresh_path)
     
     def test_missing_config_file(self):
@@ -88,6 +88,20 @@ paths:
         self.assertEqual(config.get('paths.credentials'), '~/.test/credentials')
         self.assertIsNone(config.get('nonexistent.key'))
         self.assertEqual(config.get('nonexistent.key', 'default'), 'default')
+
+    def test_relative_token_refresh_path_resolves_against_config_dir(self):
+        """Test relative token_refresh path is resolved from config file location."""
+        config_content = """
+paths:
+  credentials: ~/.openclaw/credentials/vikunja
+  token_refresh: ../vikunja-admin/scripts/token_refresh.sh
+"""
+        with open(self.config_path, 'w') as f:
+            f.write(config_content)
+
+        config = Config(str(self.config_path))
+        expected = (self.config_path.parent / "../vikunja-admin/scripts/token_refresh.sh").resolve()
+        self.assertEqual(config.token_refresh_path, expected)
 
 
 if __name__ == '__main__':

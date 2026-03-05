@@ -111,7 +111,7 @@ class VikunjaClient:
         data: Optional[Dict] = None,
         params: Optional[Dict] = None,
         retry_on_auth: bool = True
-    ) -> Dict[str, Any]:
+    ) -> Any:
         """Make an HTTP request to the Vikunja API.
         
         Args:
@@ -122,7 +122,7 @@ class VikunjaClient:
             retry_on_auth: Whether to retry on 401 Unauthorized
             
         Returns:
-            Parsed JSON response
+            Parsed JSON response (dict or list depending on endpoint)
             
         Raises:
             AuthError: If authentication fails and cannot be refreshed
@@ -185,19 +185,19 @@ class VikunjaClient:
         except json.JSONDecodeError:
             return {}
     
-    def get(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+    def get(self, endpoint: str, params: Optional[Dict] = None) -> Any:
         """Make a GET request."""
         return self._make_request('GET', endpoint, params=params)
     
-    def post(self, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+    def post(self, endpoint: str, data: Optional[Dict] = None) -> Any:
         """Make a POST request."""
         return self._make_request('POST', endpoint, data=data)
     
-    def put(self, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+    def put(self, endpoint: str, data: Optional[Dict] = None) -> Any:
         """Make a PUT request."""
         return self._make_request('PUT', endpoint, data=data)
     
-    def delete(self, endpoint: str) -> Dict[str, Any]:
+    def delete(self, endpoint: str) -> Any:
         """Make a DELETE request."""
         return self._make_request('DELETE', endpoint)
     

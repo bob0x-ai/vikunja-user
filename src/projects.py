@@ -15,6 +15,17 @@ class ProjectManager:
             client: Authenticated VikunjaClient instance
         """
         self.client = client
+
+    @staticmethod
+    def _extract_items(response: Any) -> List[Dict[str, Any]]:
+        """Normalize Vikunja list responses."""
+        if isinstance(response, list):
+            return response
+        if isinstance(response, dict):
+            data = response.get('data')
+            if isinstance(data, list):
+                return data
+        return []
     
     def list_projects(self, search: Optional[str] = None) -> List[Dict[str, Any]]:
         """List all projects accessible to the user.
@@ -31,7 +42,7 @@ class ProjectManager:
             params['search'] = search
         
         response = self.client.get('/projects', params=params)
-        return response.get('data', [])
+        return self._extract_items(response)
     
     def get_project(self, project_id: int) -> Dict[str, Any]:
         """Get detailed information about a specific project.
@@ -92,15 +103,15 @@ class ProjectManager:
         Raises:
             NotFoundError: If project doesn't exist
         """
-        params: Dict[str, Any] = {'project': project_id}
+        params: Dict[str, Any] = {}
         
         if status:
             params['status'] = status
         
-        response = self.client.get('/tasks', params=params)
-        return response.get('data', [])
+        response = self.client.get(f'/projects/{project_id}/tasks', params=params)
+        return self._extract_items(response)
     
-    def get_task_buckets(self, project_id: int) -> List[Dict[str, Any]]:
+    def get_task_buckets(self, project_id: int, view_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """Get kanban buckets for a project.
         
         Args:
@@ -112,8 +123,17 @@ class ProjectManager:
         Raises:
             NotFoundError: If project doesn't exist
         """
-        response = self.client.get(f'/projects/{project_id}/buckets')
-        return response.get('data', [])
+        if view_id is None:
+            views_response = self.client.get(f'/projects/{project_id}/views')
+            views = self._extract_items(views_response)
+            if not views:
+                return []
+            view_id = views[0].get('id')
+            if view_id is None:
+                return []
+
+        response = self.client.get(f'/projects/{project_id}/views/{view_id}/buckets')
+        return self._extract_items(response)
     
     def get_labels(self, project_id: int) -> List[Dict[str, Any]]:
         """Get labels available in a project.
@@ -127,5 +147,5 @@ class ProjectManager:
         Raises:
             NotFoundError: If project doesn't exist
         """
-        response = self.client.get(f'/projects/{project_id}/labels')
-        return response.get('data', [])
+        response = self.client.get('/labels')
+        return self._extract_items(response)

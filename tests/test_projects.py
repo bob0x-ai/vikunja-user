@@ -24,12 +24,10 @@ class TestProjectManager(unittest.TestCase):
     
     def test_list_projects(self):
         """Test listing all projects."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'title': 'Project 1'},
-                {'id': 2, 'title': 'Project 2'}
-            ]
-        }
+        self.mock_client.get.return_value = [
+            {'id': 1, 'title': 'Project 1'},
+            {'id': 2, 'title': 'Project 2'}
+        ]
         
         projects = self.project_manager.list_projects()
         
@@ -39,9 +37,7 @@ class TestProjectManager(unittest.TestCase):
     
     def test_list_projects_with_search(self):
         """Test listing projects with search filter."""
-        self.mock_client.get.return_value = {
-            'data': [{'id': 1, 'title': 'Test Project'}]
-        }
+        self.mock_client.get.return_value = [{'id': 1, 'title': 'Test Project'}]
         
         projects = self.project_manager.list_projects(search='test')
         
@@ -64,12 +60,10 @@ class TestProjectManager(unittest.TestCase):
     
     def test_get_project_by_name_exact_match(self):
         """Test finding project by exact name match."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'title': 'Work Project'},
-                {'id': 2, 'title': 'Personal Project'}
-            ]
-        }
+        self.mock_client.get.return_value = [
+            {'id': 1, 'title': 'Work Project'},
+            {'id': 2, 'title': 'Personal Project'}
+        ]
         
         project = self.project_manager.get_project_by_name('Work Project')
         
@@ -78,12 +72,10 @@ class TestProjectManager(unittest.TestCase):
     
     def test_get_project_by_name_partial_match(self):
         """Test finding project by partial name match."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'title': 'My Work Project'},
-                {'id': 2, 'title': 'Another Project'}
-            ]
-        }
+        self.mock_client.get.return_value = [
+            {'id': 1, 'title': 'My Work Project'},
+            {'id': 2, 'title': 'Another Project'}
+        ]
         
         project = self.project_manager.get_project_by_name('Work')
         
@@ -92,11 +84,7 @@ class TestProjectManager(unittest.TestCase):
     
     def test_get_project_by_name_not_found(self):
         """Test when project name is not found."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'title': 'Project A'}
-            ]
-        }
+        self.mock_client.get.return_value = [{'id': 1, 'title': 'Project A'}]
         
         project = self.project_manager.get_project_by_name('Nonexistent')
         
@@ -104,60 +92,52 @@ class TestProjectManager(unittest.TestCase):
     
     def test_get_project_tasks(self):
         """Test getting tasks in a project."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'title': 'Task 1', 'project_id': 5},
-                {'id': 2, 'title': 'Task 2', 'project_id': 5}
-            ]
-        }
+        self.mock_client.get.return_value = [
+            {'id': 1, 'title': 'Task 1', 'project_id': 5},
+            {'id': 2, 'title': 'Task 2', 'project_id': 5}
+        ]
         
         tasks = self.project_manager.get_project_tasks(5)
         
         self.assertEqual(len(tasks), 2)
-        self.mock_client.get.assert_called_once_with('/tasks', params={'project': 5})
+        self.mock_client.get.assert_called_once_with('/projects/5/tasks', params={})
     
     def test_get_project_tasks_with_status_filter(self):
         """Test getting tasks with status filter."""
-        self.mock_client.get.return_value = {
-            'data': [{'id': 1, 'title': 'Open Task', 'done': False}]
-        }
+        self.mock_client.get.return_value = [{'id': 1, 'title': 'Open Task', 'done': False}]
         
         tasks = self.project_manager.get_project_tasks(5, status='open')
         
         self.assertEqual(len(tasks), 1)
         self.mock_client.get.assert_called_once_with(
-            '/tasks',
-            params={'project': 5, 'status': 'open'}
+            '/projects/5/tasks',
+            params={'status': 'open'}
         )
     
-    def test_get_task_buckets(self):
-        """Test getting kanban buckets for a project."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'title': 'To Do'},
-                {'id': 2, 'title': 'In Progress'},
-                {'id': 3, 'title': 'Done'}
-            ]
-        }
+    def test_get_task_buckets_uses_first_view_when_not_provided(self):
+        """Test getting buckets uses first available view by default."""
+        self.mock_client.get.side_effect = [
+            [{'id': 11, 'title': 'Default'}],  # /projects/5/views
+            [{'id': 1, 'title': 'To Do'}],     # /projects/5/views/11/buckets
+        ]
         
         buckets = self.project_manager.get_task_buckets(5)
         
-        self.assertEqual(len(buckets), 3)
-        self.mock_client.get.assert_called_once_with('/projects/5/buckets')
+        self.assertEqual(len(buckets), 1)
+        self.assertEqual(self.mock_client.get.call_args_list[0][0][0], '/projects/5/views')
+        self.assertEqual(self.mock_client.get.call_args_list[1][0][0], '/projects/5/views/11/buckets')
     
     def test_get_labels(self):
         """Test getting labels for a project."""
-        self.mock_client.get.return_value = {
-            'data': [
-                {'id': 1, 'title': 'Bug', 'color': '#ff0000'},
-                {'id': 2, 'title': 'Feature', 'color': '#00ff00'}
-            ]
-        }
+        self.mock_client.get.return_value = [
+            {'id': 1, 'title': 'Bug', 'color': '#ff0000'},
+            {'id': 2, 'title': 'Feature', 'color': '#00ff00'}
+        ]
         
         labels = self.project_manager.get_labels(5)
         
         self.assertEqual(len(labels), 2)
-        self.mock_client.get.assert_called_once_with('/projects/5/labels')
+        self.mock_client.get.assert_called_once_with('/labels')
 
 
 if __name__ == '__main__':

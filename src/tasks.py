@@ -15,6 +15,21 @@ class TaskManager:
             client: Authenticated VikunjaClient instance
         """
         self.client = client
+
+    @staticmethod
+    def _extract_items(response: Any) -> List[Dict[str, Any]]:
+        """Normalize Vikunja list responses.
+
+        Some endpoints return a plain list while others may return
+        {"data": [...]}.
+        """
+        if isinstance(response, list):
+            return response
+        if isinstance(response, dict):
+            data = response.get('data')
+            if isinstance(data, list):
+                return data
+        return []
     
     def list_tasks(
         self,
@@ -49,7 +64,7 @@ class TaskManager:
             params['assignees'] = assignee_id
         
         response = self.client.get('/tasks', params=params)
-        return response.get('data', [])
+        return self._extract_items(response)
     
     def get_task(self, task_id: int) -> Dict[str, Any]:
         """Get detailed information about a specific task.
@@ -85,10 +100,10 @@ class TaskManager:
         Returns:
             Created task dictionary
         """
+        if not project_id:
+            raise ValueError("project_id is required to create tasks on this Vikunja version")
+
         data: Dict[str, Any] = {'title': title}
-        
-        if project_id:
-            data['project_id'] = project_id
         
         if description:
             data['description'] = description
@@ -99,7 +114,7 @@ class TaskManager:
         if assignee_id:
             data['assignees'] = [{'id': assignee_id}]
         
-        return self.client.post('/tasks', data=data)
+        return self.client.put(f'/projects/{project_id}/tasks', data=data)
     
     def update_task(
         self,
@@ -164,7 +179,7 @@ class TaskManager:
         if percent_done is not None:
             data['percent_done'] = max(0, min(100, percent_done))
         
-        return self.client.put(f'/tasks/{task_id}', data=data)
+        return self.client.post(f'/tasks/{task_id}', data=data)
     
     def delete_task(self, task_id: int) -> bool:
         """Delete a task.
@@ -195,7 +210,7 @@ class TaskManager:
             NotFoundError: If task doesn't exist
         """
         data = {'comment': comment}
-        return self.client.post(f'/tasks/{task_id}/comments', data=data)
+        return self.client.put(f'/tasks/{task_id}/comments', data=data)
     
     def get_comments(self, task_id: int) -> List[Dict[str, Any]]:
         """Get all comments for a task.
@@ -210,7 +225,7 @@ class TaskManager:
             NotFoundError: If task doesn't exist
         """
         response = self.client.get(f'/tasks/{task_id}/comments')
-        return response.get('data', [])
+        return self._extract_items(response)
     
     def mark_done(self, task_id: int) -> Dict[str, Any]:
         """Mark a task as done.
