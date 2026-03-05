@@ -12,5 +12,9 @@ paths:
   # - prod: ~/.openclaw/skills/vikunja-user/../vikunja-admin/scripts/
   token_refresh: ../vikunja-admin/scripts/token_refresh.sh
 
+# Auth diagnostics behavior for repeated 401s
+auth:
+  diagnostics_cache_seconds: 60
+
 # Default output format (json, human)
 default_format: json

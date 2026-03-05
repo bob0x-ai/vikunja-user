@@ -324,6 +324,10 @@ paths:
   # - prod: ~/.openclaw/skills/vikunja-user/../vikunja-admin/scripts/
   token_refresh: ../vikunja-admin/scripts/token_refresh.sh
 
+# Auth diagnostics behavior for repeated 401s
+auth:
+  diagnostics_cache_seconds: 60
+
 # Default output format
 default_format: json
 ```
@@ -339,8 +343,12 @@ users:
     id: 123
     password: secret
     token: api_token_here
+    token_id: 456
+    token_last_eight: 12ab34cd
     scope: worker
 ```
+
+`token_id` and `token_last_eight` are optional but recommended. They allow exact token matching during 401 diagnostics when users have multiple API tokens.
 
 **Note:** This skill only reads credentials. It never writes to this file.
 

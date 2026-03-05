@@ -4,10 +4,9 @@
 import json
 import re
 import subprocess
-import sys
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
-from pathlib import Path
 
 import requests
 import yaml
@@ -48,11 +47,47 @@ class VikunjaClient:
         self._token: Optional[str] = None
         self._user_id: Optional[int] = None
         self._password: Optional[str] = None
+        self._token_id: Optional[int] = None
+        self._token_last_eight: Optional[str] = None
         self._session = requests.Session()
+        self._diagnostic_cache_ttl_seconds = self._parse_positive_int(
+            self.config.get('auth.diagnostics_cache_seconds', 60), 60
+        )
+        self._diagnostic_cache: Dict[str, Tuple[float, str]] = {}
+        self._diagnostic_context_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self._load_credentials()
+
+    @staticmethod
+    def _parse_positive_int(value: Any, default: int) -> int:
+        try:
+            parsed = int(value)
+            return parsed if parsed > 0 else default
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _normalize_last_eight(value: Any) -> Optional[str]:
+        if not isinstance(value, str):
+            return None
+        candidate = value.strip()
+        return candidate if candidate else None
+
+    def _token_fingerprint(self) -> str:
+        if self._token_id is not None:
+            return f"id:{self._token_id}"
+        if self._token_last_eight:
+            return f"last8:{self._token_last_eight}"
+        if self._token and len(self._token) >= 8:
+            return f"last8:{self._token[-8:]}"
+        return "unknown"
+
+    def _clear_auth_diagnostics_cache(self) -> None:
+        self._diagnostic_cache.clear()
+        self._diagnostic_context_cache.clear()
     
     def _load_credentials(self) -> None:
         """Load credentials from users.yaml file."""
+        previous_fingerprint = self._token_fingerprint()
         creds_path = self.config.credentials_path
         
         if not creds_path.exists():
@@ -76,9 +111,33 @@ class VikunjaClient:
         self._token = user_data.get('token')
         self._user_id = user_data.get('id')
         self._password = user_data.get('password')
+        raw_token_id = user_data.get('token_id')
+        raw_token_last_eight = user_data.get('token_last_eight')
         
         if not self._token:
             raise AuthError(f"No API token found for user '{self.username}'")
+
+        self._token_id = None
+        if raw_token_id is not None and raw_token_id != "":
+            try:
+                self._token_id = int(raw_token_id)
+            except (TypeError, ValueError):
+                raise AuthError(
+                    f"Invalid token_id for user '{self.username}': {raw_token_id!r}. "
+                    "Expected integer."
+                )
+
+        self._token_last_eight = self._normalize_last_eight(raw_token_last_eight)
+        if not self._token_last_eight and len(self._token) >= 8:
+            self._token_last_eight = self._token[-8:]
+        if self._token_last_eight and not self._token.endswith(self._token_last_eight):
+            raise AuthError(
+                f"Credentials mismatch for user '{self.username}': token_last_eight "
+                "does not match token value."
+            )
+
+        if previous_fingerprint != self._token_fingerprint():
+            self._clear_auth_diagnostics_cache()
 
     @staticmethod
     def _normalize_route_path(path: str) -> str:
@@ -180,90 +239,267 @@ class VikunjaClient:
         except ValueError:
             return datetime.min
 
-    def _select_current_token_candidate(self, tokens: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def _select_current_token_candidate(
+        self, tokens: List[Dict[str, Any]]
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         if not tokens:
-            return None
-        # Best match when backend exposes last-eight
+            return None, "no tokens were returned by /tokens for this user."
+
+        # Exact match by token id when available.
+        if self._token_id is not None:
+            matches = [t for t in tokens if t.get('id') == self._token_id]
+            if len(matches) == 1:
+                return matches[0], None
+            if len(matches) > 1:
+                return None, (
+                    f"multiple tokens matched configured token_id '{self._token_id}'."
+                )
+            return None, f"configured token_id '{self._token_id}' was not found in /tokens."
+
+        # Deterministic match by token suffix when available.
+        if self._token_last_eight:
+            matches = [t for t in tokens if t.get('token_last_eight') == self._token_last_eight]
+            if len(matches) == 1:
+                return matches[0], None
+            if len(matches) > 1:
+                return None, (
+                    f"multiple tokens matched configured token_last_eight '{self._token_last_eight}'. "
+                    "Set token_id in users.yaml to disambiguate."
+                )
+            return None, (
+                f"configured token_last_eight '{self._token_last_eight}' was not found in /tokens."
+            )
+
+        # Backward-compatibility fallback when metadata is missing.
         if self._token and len(self._token) >= 8:
             last8 = self._token[-8:]
-            for t in tokens:
-                if t.get('token_last_eight') == last8:
-                    return t
+            matches = [t for t in tokens if t.get('token_last_eight') == last8]
+            if len(matches) == 1:
+                return matches[0], (
+                    "token metadata missing in users.yaml; matched by token suffix from token value."
+                )
+            if len(matches) > 1:
+                return None, (
+                    f"multiple tokens matched suffix '{last8}'. Add token_id/token_last_eight "
+                    "to users.yaml."
+                )
         # Common naming convention from admin skill
         preferred_title = f"{self.username}-api-token"
-        for t in tokens:
-            if t.get('title') == preferred_title:
-                return t
+        title_matches = [t for t in tokens if t.get('title') == preferred_title]
+        if len(title_matches) == 1:
+            return title_matches[0], (
+                "token metadata missing in users.yaml; matched by token title convention."
+            )
+        if len(title_matches) > 1:
+            return sorted(
+                title_matches, key=lambda t: self._parse_iso_datetime(t.get('created')), reverse=True
+            )[0], (
+                "multiple tokens matched title convention; selected newest candidate. "
+                "Add token_id/token_last_eight to users.yaml for exact matching."
+            )
         # Fallback to newest token
-        return sorted(tokens, key=lambda t: self._parse_iso_datetime(t.get('created')), reverse=True)[0]
+        return sorted(tokens, key=lambda t: self._parse_iso_datetime(t.get('created')), reverse=True)[0], (
+            "token metadata missing in users.yaml; selected newest token as fallback."
+        )
 
-    def _get_token_permissions_with_jwt(self, jwt_token: str) -> Optional[Dict[str, List[str]]]:
+    def _get_token_permissions_with_jwt(
+        self, jwt_token: str
+    ) -> Tuple[Optional[Dict[str, List[str]]], Optional[str]]:
         headers = {'Authorization': f'Bearer {jwt_token}', 'Accept': 'application/json'}
         try:
             resp = self._session_request('GET', '/tokens', headers=headers)
         except requests.RequestException:
-            return None
+            return None, "failed to fetch /tokens (network error)."
         if not resp.ok:
-            return None
+            return None, f"failed to fetch /tokens (HTTP {resp.status_code})."
         try:
             body = resp.json()
         except json.JSONDecodeError:
-            return None
+            return None, "failed to parse /tokens response."
         if not isinstance(body, list):
-            return None
+            return None, "unexpected /tokens payload type."
         tokens = [t for t in body if isinstance(t, dict)]
-        token = self._select_current_token_candidate(tokens)
+        token, note = self._select_current_token_candidate(tokens)
         if not token:
-            return None
+            return None, note or "could not identify current API token in /tokens."
         perms = token.get('permissions')
-        return perms if isinstance(perms, dict) else None
+        if isinstance(perms, dict):
+            return perms, note
+        return None, note or "selected token has no permissions payload."
 
-    def _diagnose_unauthorized(self, method: str, endpoint: str) -> str:
+    def _probe_endpoint_with_jwt(
+        self, jwt_token: str, method: str, endpoint: str, params: Optional[Dict] = None
+    ) -> Optional[int]:
+        safe_probe_methods = {'GET', 'HEAD', 'OPTIONS'}
+        probe_method = method.upper()
+        if probe_method not in safe_probe_methods:
+            return None
+        headers = {'Authorization': f'Bearer {jwt_token}', 'Accept': 'application/json'}
+        try:
+            resp = self._session_request(probe_method, endpoint, headers=headers, params=params)
+        except requests.RequestException:
+            return None
+        return resp.status_code
+
+    @staticmethod
+    def _extract_response_message(response: Optional[requests.Response]) -> Optional[str]:
+        if response is None:
+            return None
+        try:
+            body = response.json()
+        except (ValueError, json.JSONDecodeError):
+            return response.text.strip() or None
+        if isinstance(body, dict):
+            message = body.get('message')
+            if isinstance(message, str) and message.strip():
+                return message.strip()
+            return str(body)
+        return str(body)
+
+    def _diagnostic_cache_key(self, method: str, endpoint: str, params: Optional[Dict] = None) -> str:
+        if params:
+            serialized = json.dumps(params, sort_keys=True, default=str)
+        else:
+            serialized = ""
+        return (
+            f"{self._token_fingerprint()}|{method.upper()}|"
+            f"{self._normalize_route_path(endpoint)}|{serialized}"
+        )
+
+    def _get_cached_diagnostic_message(self, cache_key: str) -> Optional[str]:
+        cached = self._diagnostic_cache.get(cache_key)
+        if not cached:
+            return None
+        expires_at, message = cached
+        if expires_at <= time.monotonic():
+            self._diagnostic_cache.pop(cache_key, None)
+            return None
+        return message
+
+    def _set_cached_diagnostic_message(self, cache_key: str, message: str) -> None:
+        expires_at = time.monotonic() + self._diagnostic_cache_ttl_seconds
+        self._diagnostic_cache[cache_key] = (expires_at, message)
+
+    def _get_diagnostic_context(self, jwt_token: str) -> Dict[str, Any]:
+        cache_key = self._token_fingerprint()
+        cached = self._diagnostic_context_cache.get(cache_key)
+        if cached and cached[0] > time.monotonic():
+            return cached[1]
+
+        routes = self._get_routes_with_jwt(jwt_token)
+        token_permissions, token_note = self._get_token_permissions_with_jwt(jwt_token)
+        context = {
+            'routes': routes,
+            'token_permissions': token_permissions,
+            'token_selection_note': token_note,
+        }
+        expires_at = time.monotonic() + self._diagnostic_cache_ttl_seconds
+        self._diagnostic_context_cache[cache_key] = (expires_at, context)
+        return context
+
+    def _diagnose_unauthorized(
+        self,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict] = None,
+        response: Optional[requests.Response] = None,
+    ) -> str:
         """Build a human-meaningful auth error for misleading 401 responses."""
+        cache_key = self._diagnostic_cache_key(method, endpoint, params)
+        cached_message = self._get_cached_diagnostic_message(cache_key)
+        if cached_message:
+            return cached_message
+
+        backend_message = self._extract_response_message(response)
+        normalized_path = self._normalize_route_path(endpoint)
+
         token_valid = self._check_token_validity()
         if not token_valid:
-            return (
+            message = (
                 "Authentication failed: your API token is missing, invalid, or expired. "
                 "Refresh or recreate the token."
             )
+            if backend_message:
+                message += f" Backend response: {backend_message}"
+            self._set_cached_diagnostic_message(cache_key, message)
+            return message
 
         # Token is valid, so likely route scope/permission mismatch.
         jwt = self._login_for_diagnostics()
         if not jwt:
-            return (
-                f"Access denied for {method.upper()} {self._normalize_route_path(endpoint)}. "
+            message = (
+                f"Access denied for {method.upper()} {normalized_path}. "
                 "Your API token appears valid, but permission diagnostics could not run (login failed)."
             )
+            if backend_message:
+                message += f" Backend response: {backend_message}"
+            self._set_cached_diagnostic_message(cache_key, message)
+            return message
 
-        routes = self._get_routes_with_jwt(jwt)
+        context = self._get_diagnostic_context(jwt)
+        routes = context.get('routes')
+        token_selection_note = context.get('token_selection_note')
         required = self._find_required_permission(routes or {}, method, endpoint) if routes else None
-        token_permissions = self._get_token_permissions_with_jwt(jwt)
+        token_permissions = context.get('token_permissions')
 
+        message = ""
         if required and token_permissions is not None:
             group, permission = required
             group_permissions = token_permissions.get(group, [])
             if permission not in group_permissions:
-                return (
-                    f"Access denied for {method.upper()} {self._normalize_route_path(endpoint)}: "
+                message = (
+                    f"Access denied for {method.upper()} {normalized_path}: "
                     f"token is valid but missing permission '{group}.{permission}'."
                 )
-            return (
-                f"Access denied for {method.upper()} {self._normalize_route_path(endpoint)}: "
-                "token is valid and route permission exists, but the user likely lacks object-level access."
-            )
-
-        if required:
+            else:
+                jwt_probe_status = self._probe_endpoint_with_jwt(jwt, method, endpoint, params=params)
+                if jwt_probe_status is not None and 200 <= jwt_probe_status < 300:
+                    message = (
+                        f"Access denied for {method.upper()} {normalized_path}: token is valid and includes "
+                        f"'{group}.{permission}', and the same request succeeds with username/password login. "
+                        "This points to token-scope mismatch, stale token metadata, or backend scoped-token behavior."
+                    )
+                elif jwt_probe_status in (401, 403):
+                    message = (
+                        f"Access denied for {method.upper()} {normalized_path}: token includes "
+                        f"'{group}.{permission}', but access is denied for this specific resource "
+                        "(project/task ACL or ownership restriction)."
+                    )
+                elif jwt_probe_status == 404:
+                    message = (
+                        f"Access denied for {method.upper()} {normalized_path}: token includes "
+                        f"'{group}.{permission}', but the resource is missing or hidden by access rules."
+                    )
+                else:
+                    message = (
+                        f"Access denied for {method.upper()} {normalized_path}: token includes "
+                        f"'{group}.{permission}', but request is still denied (likely object-level ACL)."
+                    )
+        elif required:
             group, permission = required
-            return (
-                f"Access denied for {method.upper()} {self._normalize_route_path(endpoint)}: "
+            message = (
+                f"Access denied for {method.upper()} {normalized_path}: "
                 f"token is valid; required permission is '{group}.{permission}', but current token "
                 "permissions could not be determined."
             )
+        elif routes is not None:
+            message = (
+                f"Access denied for {method.upper()} {normalized_path}: token is valid, but this endpoint "
+                "did not match any route permission from /routes."
+            )
+        else:
+            message = (
+                f"Access denied for {method.upper()} {normalized_path}: token is valid, but route "
+                "information could not be retrieved."
+            )
 
-        return (
-            f"Access denied for {method.upper()} {self._normalize_route_path(endpoint)}: "
-            "token is valid, but this endpoint is not available for your token scope."
-        )
+        if token_selection_note:
+            message += f" Token selection note: {token_selection_note}"
+        if backend_message:
+            message += f" Backend response: {backend_message}"
+
+        self._set_cached_diagnostic_message(cache_key, message)
+        return message
     
     def _refresh_token(self) -> bool:
         """Attempt to refresh the authentication token.
@@ -343,7 +579,7 @@ class VikunjaClient:
             if retry_on_auth and self._refresh_token():
                 # Retry the request with a new token exactly once.
                 return self._make_request(method, endpoint, data, params, retry_on_auth=False)
-            raise AuthError(self._diagnose_unauthorized(method, endpoint))
+            raise AuthError(self._diagnose_unauthorized(method, endpoint, params=params, response=response))
         
         # Handle 404 Not Found
         if response.status_code == 404:

@@ -5,7 +5,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, patch
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
@@ -30,6 +30,9 @@ vikunja:
 paths:
   credentials: {self.creds_path}
   token_refresh: {self.temp_dir}/refresh.sh
+
+auth:
+  diagnostics_cache_seconds: 60
 """
         with open(self.config_path, 'w') as f:
             f.write(config_content)
@@ -47,6 +50,8 @@ users:
     id: 123
     password: testpass
     token: test_token_123
+    token_id: 555
+    token_last_eight: oken_123
     scope: worker
 """
         with open(self.creds_path, 'w') as f:
@@ -74,6 +79,26 @@ users:
         client = VikunjaClient('testuser', str(self.config_path))
         self.assertEqual(client._token, 'test_token_123')
         self.assertEqual(client._user_id, 123)
+        self.assertEqual(client._token_id, 555)
+        self.assertEqual(client._token_last_eight, 'oken_123')
+
+    def test_load_credentials_invalid_token_last_eight(self):
+        """Test AuthError when token_last_eight does not match token value."""
+        creds_content = """
+users:
+  testuser:
+    user: testuser
+    id: 123
+    password: testpass
+    token: test_token_123
+    token_last_eight: mismatch8
+"""
+        self.creds_path.write_text(creds_content)
+
+        with self.assertRaises(AuthError) as context:
+            VikunjaClient('testuser', str(self.config_path))
+
+        self.assertIn('token_last_eight', str(context.exception))
     
     def test_load_credentials_missing_file(self):
         """Test AuthError when credentials file doesn't exist."""
@@ -191,6 +216,8 @@ users:
                 ok=True,
                 json_body=[
                     {
+                        'id': 555,
+                        'token_last_eight': 'oken_123',
                         'title': 'testuser-api-token',
                         'created': '2026-03-05T00:00:00Z',
                         'permissions': {'tasks': ['read_all']}
@@ -223,6 +250,137 @@ users:
         msg = str(context.exception).lower()
         self.assertIn('invalid', msg)
         self.assertIn('expired', msg)
+
+    @patch('api_client.requests.Session.request')
+    def test_token_selection_prefers_token_id(self, mock_request):
+        """Token permission lookup should use configured token_id over title/fallback heuristics."""
+        mock_request.return_value = self._mock_response(
+            status_code=200,
+            ok=True,
+            json_body=[
+                {
+                    'id': 111,
+                    'token_last_eight': 'oken_123',
+                    'title': 'testuser-api-token',
+                    'created': '2026-03-05T00:00:00Z',
+                    'permissions': {'tasks': ['read_all']},
+                },
+                {
+                    'id': 555,
+                    'token_last_eight': 'oken_123',
+                    'title': 'other-token',
+                    'created': '2026-03-01T00:00:00Z',
+                    'permissions': {'tasks': ['update']},
+                },
+            ],
+        )
+        client = VikunjaClient('testuser', str(self.config_path))
+        permissions, note = client._get_token_permissions_with_jwt('jwt_123')
+        self.assertEqual(permissions, {'tasks': ['update']})
+        self.assertIsNone(note)
+
+    @patch('api_client.requests.Session.request')
+    @patch('api_client.subprocess.run')
+    def test_auth_error_uses_cached_diagnostics(self, mock_subprocess, mock_request):
+        """Second identical 401 should reuse cached diagnosis and skip extra diagnostic requests."""
+        mock_subprocess.return_value = Mock(returncode=1, stdout='', stderr='')
+        mock_request.side_effect = [
+            self._mock_response(status_code=401, ok=False, json_body={'message': 'invalid token'}),
+            self._mock_response(status_code=200, ok=True, json_body={'message': 'ok'}),
+            self._mock_response(status_code=200, ok=True, json_body={'token': 'jwt_123'}),
+            self._mock_response(
+                status_code=200,
+                ok=True,
+                json_body={'tasks': {'update': {'path': '/api/v1/tasks/:projecttask', 'method': 'GET'}}},
+            ),
+            self._mock_response(
+                status_code=200,
+                ok=True,
+                json_body=[{
+                    'id': 555,
+                    'token_last_eight': 'oken_123',
+                    'title': 'testuser-api-token',
+                    'permissions': {'tasks': ['read_all']},
+                }],
+            ),
+            self._mock_response(status_code=401, ok=False, json_body={'message': 'invalid token'}),
+        ]
+
+        client = VikunjaClient('testuser', str(self.config_path))
+        with self.assertRaises(AuthError):
+            client.get('/tasks/1')
+        with self.assertRaises(AuthError):
+            client.get('/tasks/1')
+
+        self.assertEqual(mock_request.call_count, 6)
+
+    @patch('api_client.requests.Session.request')
+    @patch('api_client.subprocess.run')
+    def test_auth_error_reports_object_level_denial(self, mock_subprocess, mock_request):
+        """If token has route permission but JWT is also denied, report object-level denial."""
+        mock_subprocess.return_value = Mock(returncode=1, stdout='', stderr='')
+        mock_request.side_effect = [
+            self._mock_response(status_code=401, ok=False, json_body={'message': 'invalid token'}),
+            self._mock_response(status_code=200, ok=True, json_body={'message': 'ok'}),
+            self._mock_response(status_code=200, ok=True, json_body={'token': 'jwt_123'}),
+            self._mock_response(
+                status_code=200,
+                ok=True,
+                json_body={'tasks': {'update': {'path': '/api/v1/tasks/:projecttask', 'method': 'GET'}}},
+            ),
+            self._mock_response(
+                status_code=200,
+                ok=True,
+                json_body=[{
+                    'id': 555,
+                    'token_last_eight': 'oken_123',
+                    'title': 'testuser-api-token',
+                    'permissions': {'tasks': ['update']},
+                }],
+            ),
+            self._mock_response(status_code=403, ok=False, json_body={'message': 'forbidden'}),
+        ]
+
+        client = VikunjaClient('testuser', str(self.config_path))
+        with self.assertRaises(AuthError) as context:
+            client.get('/tasks/1')
+
+        self.assertIn('specific resource', str(context.exception))
+
+    @patch('api_client.requests.Session.request')
+    @patch('api_client.subprocess.run')
+    def test_auth_error_reports_scope_mismatch_when_jwt_probe_succeeds(self, mock_subprocess, mock_request):
+        """If JWT succeeds but scoped token fails, report likely scope mismatch/back-end behavior."""
+        mock_subprocess.return_value = Mock(returncode=1, stdout='', stderr='')
+        mock_request.side_effect = [
+            self._mock_response(status_code=401, ok=False, json_body={'message': 'invalid token'}),
+            self._mock_response(status_code=200, ok=True, json_body={'message': 'ok'}),
+            self._mock_response(status_code=200, ok=True, json_body={'token': 'jwt_123'}),
+            self._mock_response(
+                status_code=200,
+                ok=True,
+                json_body={'tasks': {'update': {'path': '/api/v1/tasks/:projecttask', 'method': 'GET'}}},
+            ),
+            self._mock_response(
+                status_code=200,
+                ok=True,
+                json_body=[{
+                    'id': 555,
+                    'token_last_eight': 'oken_123',
+                    'title': 'testuser-api-token',
+                    'permissions': {'tasks': ['update']},
+                }],
+            ),
+            self._mock_response(status_code=200, ok=True, json_body={'id': 1, 'title': 'ok'}),
+        ]
+
+        client = VikunjaClient('testuser', str(self.config_path))
+        with self.assertRaises(AuthError) as context:
+            client.get('/tasks/1')
+
+        msg = str(context.exception).lower()
+        self.assertIn('succeeds with username/password login', msg)
+        self.assertIn('scope', msg)
     
     @patch('api_client.requests.Session.request')
     def test_not_found_error(self, mock_request):

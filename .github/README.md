@@ -29,12 +29,29 @@ paths:
   credentials: ~/.openclaw/credentials/vikunja
   token_refresh: ../vikunja-admin/scripts/token_refresh.sh
 
+auth:
+  diagnostics_cache_seconds: 60
+
 default_format: json
 ```
 
 `credentials` can be either:
 - a directory containing `users.yaml`, or
 - a direct path to `users.yaml`.
+
+`users.yaml` entries may include token identity metadata for deterministic diagnostics:
+
+```yaml
+users:
+  bob:
+    user: bob
+    id: 1
+    password: secret
+    token: vkp_...
+    token_id: 123
+    token_last_eight: abcdef12
+    scope: worker
+```
 
 ## Authentication Username Resolution
 
