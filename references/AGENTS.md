@@ -199,12 +199,13 @@ Exit code: 2
 
 ### Python Dependencies
 
-**requirements.txt:**
+**requirements.txt** (located in `scripts/`):
 ```
 requests>=2.28.0
 pyyaml>=6.0
+dateparser>=1.1.0
 ```
-**Python version:** 3.14
+**Python version:** 3.8+
 
 ### API Client Design
 

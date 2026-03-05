@@ -195,7 +195,7 @@ vikunja:
 
 paths:
   credentials: ~/.openclaw/credentials/vikunja
-  token_refresh: ~/skills-dev/vikunja-admin/scripts/token_refresh.sh
+  token_refresh: ../vikunja-admin/scripts/token_refresh.sh
 
 default_format: human
 ```
@@ -268,19 +268,22 @@ vikunja-user/
 │   ├── test_config.py
 │   ├── test_projects.py
 │   └── test_tasks.py
-├── github/           # GitHub documentation
+├── .github/          # GitHub documentation
 │   └── README.md     # Human-facing documentation
 ├── references/       # Architecture documentation
 │   └── AGENTS.md     # Implementation specification
+├── scripts/          # Executable scripts and dependencies
+│   ├── setup.sh
+│   ├── vikunja.sh
+│   └── requirements.txt  # Python dependencies
 ├── config.yaml       # Configuration file
-├── requirements.txt  # Python dependencies
 └── SKILL.md          # Agent-facing documentation
 ```
 
 ## Troubleshooting
 
 ### "Virtual environment not found"
-Run `./setup.sh` to create the virtual environment.
+Run `./scripts/setup.sh` to create the virtual environment.
 
 ### "User not found in configuration"
 Contact your administrator to set up your Vikunja credentials.
