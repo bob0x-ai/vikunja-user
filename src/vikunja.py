@@ -215,13 +215,25 @@ def handle_task_command(args: argparse.Namespace, formatter: OutputFormatter) ->
             if args.project:
                 project_id = resolve_project_id(project_manager, args.project)
             
+            # Determine assignee filter
             assignee_id = None
             if args.user:
+                # Explicit --user flag provided
                 assignee_id = resolve_user_id(client, args.user, project_manager)
+            elif not args.all:
+                # Default: show only tasks assigned to current user
+                # Use the authenticated user's ID
+                assignee_id = client.user_id
+            
+            # Determine status filter
+            status = args.status
+            if not args.all and not status:
+                # Default: show only open (not done) tasks
+                status = 'open'
             
             tasks = task_manager.list_tasks(
                 project_id=project_id,
-                status=args.status,
+                status=status,
                 filter_text=args.filter,
                 assignee_id=assignee_id
             )
@@ -436,6 +448,7 @@ def main() -> int:
     
     # task list
     task_list = task_subparsers.add_parser('list', help='List tasks')
+    task_list.add_argument('--all', action='store_true', help='Show all tasks (overrides default filter)')
     task_list.add_argument('--project', '-p', help='Filter by project name or ID')
     task_list.add_argument('--status', '-s', choices=['open', 'done'], help='Filter by status')
     task_list.add_argument('--filter', help='Filter by text in title/description')

@@ -69,10 +69,14 @@ A command-line interface for managing tasks and projects in a Vikunja instance. 
 ### Task Commands
 
 #### List Tasks
+
+**Default behavior**: Shows only tasks assigned to you with status "open" (not done).
+
 ```bash
 ./scripts/vikunja.sh task list [options]
 
 Options:
+  --all            Show all tasks (overrides default filters)
   --project, -p    Filter by project name or ID
   --status, -s     Filter by status (open|done)
   --filter         Filter by text in title/description
@@ -81,8 +85,22 @@ Options:
 
 **Examples:**
 ```bash
-./scripts/vikunja.sh task list --status open
-./scripts/vikunja.sh task list --project "Work" --status open
+# Default: Show your open tasks
+./scripts/vikunja.sh task list
+
+# Show all tasks (for team leads/managers)
+./scripts/vikunja.sh task list --all
+
+# Show all open tasks across team
+./scripts/vikunja.sh task list --all --status open
+
+# Show your tasks in a specific project
+./scripts/vikunja.sh task list --project "Work"
+
+# Show tasks assigned to another user
+./scripts/vikunja.sh task list --all --user "john"
+
+# Filter by text
 ./scripts/vikunja.sh task list --filter "urgent"
 ```
 
