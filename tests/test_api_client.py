@@ -56,6 +56,18 @@ users:
         """Clean up test fixtures."""
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @staticmethod
+    def _mock_response(status_code=200, ok=True, json_body=None, text=''):
+        resp = Mock()
+        resp.status_code = status_code
+        resp.ok = ok
+        if json_body is None:
+            resp.json.side_effect = json.JSONDecodeError("no json", "", 0)
+        else:
+            resp.json.return_value = json_body
+        resp.text = text
+        return resp
     
     def test_load_credentials_success(self):
         """Test successful credential loading."""
@@ -148,7 +160,69 @@ users:
         with self.assertRaises(AuthError) as context:
             client.get('/tasks/1')
         
-        self.assertIn('expired', str(context.exception))
+        self.assertIn('token', str(context.exception).lower())
+
+    @patch('api_client.requests.Session.request')
+    @patch('api_client.subprocess.run')
+    def test_auth_error_reports_missing_permission(self, mock_subprocess, mock_request):
+        """Test detailed 401 message when token is valid but missing route permission."""
+        mock_subprocess.return_value = Mock(returncode=1, stdout='', stderr='')
+
+        # 1) original request -> 401
+        # 2) token/test -> 200 (token valid)
+        # 3) login -> 200 + jwt
+        # 4) routes -> includes tasks.update
+        # 5) tokens -> current token missing tasks.update
+        mock_request.side_effect = [
+            self._mock_response(status_code=401, ok=False, json_body={'message': 'invalid token'}),
+            self._mock_response(status_code=200, ok=True, json_body={'message': 'ok'}),
+            self._mock_response(status_code=200, ok=True, json_body={'token': 'jwt_123'}),
+            self._mock_response(
+                status_code=200,
+                ok=True,
+                json_body={
+                    'tasks': {
+                        'update': {'path': '/api/v1/tasks/:projecttask', 'method': 'GET'}
+                    }
+                },
+            ),
+            self._mock_response(
+                status_code=200,
+                ok=True,
+                json_body=[
+                    {
+                        'title': 'testuser-api-token',
+                        'created': '2026-03-05T00:00:00Z',
+                        'permissions': {'tasks': ['read_all']}
+                    }
+                ],
+            ),
+        ]
+
+        client = VikunjaClient('testuser', str(self.config_path))
+        with self.assertRaises(AuthError) as context:
+            client.get('/tasks/1')
+
+        msg = str(context.exception)
+        self.assertIn("missing permission 'tasks.update'", msg)
+
+    @patch('api_client.requests.Session.request')
+    @patch('api_client.subprocess.run')
+    def test_auth_error_reports_invalid_token(self, mock_subprocess, mock_request):
+        """Test detailed 401 message when token itself is invalid/expired."""
+        mock_subprocess.return_value = Mock(returncode=1, stdout='', stderr='')
+        mock_request.side_effect = [
+            self._mock_response(status_code=401, ok=False, json_body={'message': 'invalid token'}),
+            self._mock_response(status_code=401, ok=False, json_body={'message': 'invalid token'}),
+        ]
+
+        client = VikunjaClient('testuser', str(self.config_path))
+        with self.assertRaises(AuthError) as context:
+            client.get('/tasks/1')
+
+        msg = str(context.exception).lower()
+        self.assertIn('invalid', msg)
+        self.assertIn('expired', msg)
     
     @patch('api_client.requests.Session.request')
     def test_not_found_error(self, mock_request):
